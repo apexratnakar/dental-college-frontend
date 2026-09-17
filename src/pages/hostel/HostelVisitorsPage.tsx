@@ -1,10 +1,9 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, LogOut, Users2 } from 'lucide-react';
+import { LogOut, Users2 } from 'lucide-react';
 import { hostelApi } from '../../services/api';
 import { Spinner } from '../../components/common/Spinner';
 import { PageTitle } from '../../components/common/PageTitle';
-import { getErrorMessage } from '../../types';
 import type { Hostel, HostelVisitor, PaginatedResponse } from '../../types';
 
 export function HostelVisitorsPage() {

@@ -1,10 +1,9 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Check, X, CalendarOff } from 'lucide-react';
+import { Check, X, CalendarOff } from 'lucide-react';
 import { hostelApi } from '../../services/api';
 import { Spinner } from '../../components/common/Spinner';
 import { PageTitle } from '../../components/common/PageTitle';
-import { getErrorMessage } from '../../types';
 import type { Hostel, HostelLeaveRequest, HostelLeaveStatus, PaginatedResponse } from '../../types';
 
 const LEAVE_STATUS_STYLES: Record<HostelLeaveStatus, string> = {

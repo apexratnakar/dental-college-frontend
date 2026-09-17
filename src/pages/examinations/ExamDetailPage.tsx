@@ -6,7 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
   ArrowLeft, ChevronRight, Plus, Trash2, Save, Send,
-  CheckCircle, XCircle, Clock, Download, UserCheck, Edit2, FileText,
+  CheckCircle, XCircle, Clock, Download, UserCheck, FileText,
 } from 'lucide-react';
 import { examsApi, subjectsApi, sectionsApi } from '../../services/api';
 import { Spinner } from '../../components/common/Spinner';
@@ -16,7 +16,7 @@ import type {
   Exam, ExamSubjectSchedule, StudentMarkEntry, StudentExamResult,
   Subject, Section, PaginatedResponse, MarkComponent,
   ExamRegistration, VerificationRecord, CorrectionRecord,
-  GradingSchemeEntry, StudentComponentMarksRow,
+  StudentComponentMarksRow,
 } from '../../types';
 import { EXAM_TYPE_LABELS, EXAM_TYPE_COLORS, EXAM_STATUS_LABELS, EXAM_STATUS_COLORS } from './ExamsPage';
 
@@ -310,31 +310,12 @@ function ComponentsTab({ exam }: { exam: Exam }) {
 
 function RegistrationsTab({ exam }: { exam: Exam }) {
   const qc = useQueryClient();
-  const [error, setError] = useState('');
-
   const { data, isLoading } = useQuery({
     queryKey: ['exam-registrations', exam.id],
     queryFn: async () => {
       const { data } = await examsApi.listRegistrations(exam.id, { per_page: 500 });
       return (data as { items: ExamRegistration[]; total: number }).items;
     },
-  });
-
-  const bulkRegisterMutation = useMutation({
-    mutationFn: async () => {
-      // Register all students in the course/year automatically — backend will skip existing
-      // We fetch students via a different route; for simplicity request empty bulk to trigger backend logic
-      // Instead, use the existing listRegistrations to determine eligible students
-      // The user will use this button to "sync" all current course students
-      const ids = (data ?? []).map((r) => r.student_id);
-      if (!ids.length) throw new Error('No students to register');
-      return examsApi.bulkRegister(exam.id, ids);
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['exam-registrations', exam.id] });
-      setError('');
-    },
-    onError: (e) => setError(getErrorMessage(e)),
   });
 
   const toggleEligibility = useMutation({
@@ -360,7 +341,6 @@ function RegistrationsTab({ exam }: { exam: Exam }) {
         <p className="text-sm text-slate-600">
           {data?.length ?? 0} student(s) registered
         </p>
-        {error && <p className="text-xs text-red-500">{error}</p>}
       </div>
 
       {isLoading ? (

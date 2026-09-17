@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Clock, MapPin, BookOpen, Users } from 'lucide-react';
+import { Clock, MapPin, Users } from 'lucide-react';
 import { sessionsApi, facultyApi, timetableApi } from '../../services/api';
 import { Spinner } from '../../components/common/Spinner';
 import { PageTitle } from '../../components/common/PageTitle';

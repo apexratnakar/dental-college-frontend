@@ -34,9 +34,6 @@ export function SalaryRegisterPage() {
     enabled: !!periodId,
   });
 
-  // Auto-select first non-draft run when runs load
-  const selectedRun = runs.find((r) => r.id === runId) ?? null;
-
   // Fetch employee records for selected run
   const { data: records = [], isLoading } = useQuery<PayrollEmployeeRecord[]>({
     queryKey: ['payroll-records', runId],
@@ -145,7 +142,6 @@ export function SalaryRegisterPage() {
             </thead>
             <tbody>
               {Object.entries(byDept).map(([dept, deptRecords]) => {
-                const deptGross = deptRecords.reduce((s, r) => s + r.gross_salary, 0);
                 const deptDed = deptRecords.reduce((s, r) => s + r.total_deductions, 0);
                 const deptNet = deptRecords.reduce((s, r) => s + r.net_salary, 0);
                 return [
@@ -319,8 +315,7 @@ export function SalaryRegisterPage() {
                 </thead>
                 <tbody>
                   {Object.entries(byDept).map(([dept, deptRecords]) => {
-                    const deptGross = deptRecords.reduce((s, r) => s + r.gross_salary, 0);
-                    const deptDed = deptRecords.reduce((s, r) => s + r.total_deductions, 0);
+                        const deptDed = deptRecords.reduce((s, r) => s + r.total_deductions, 0);
                     const deptNet = deptRecords.reduce((s, r) => s + r.net_salary, 0);
                     return [
                       <tr key={`dept-${dept}`} className="bg-slate-50">

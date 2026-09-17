@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useForm } from 'react-hook-form';
+import { useForm, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
@@ -9,7 +9,7 @@ import {
 import { payrollApi, settingsApi } from '../../services/api';
 import { PageTitle } from '../../components/common/PageTitle';
 import { Spinner } from '../../components/common/Spinner';
-import type { PayslipDetail, PayslipListItem, PayrollPeriod, PaymentMode, OrganizationSettings } from '../../types';
+import type { PayslipDetail, PayslipListItem, PayrollPeriod, OrganizationSettings } from '../../types';
 
 // ── Number to words (Indian) ─────────────────────────────────────────────────
 
@@ -209,7 +209,7 @@ function RecordPaymentModal({
 }) {
   const qc = useQueryClient();
   const { register, handleSubmit, formState: { errors } } = useForm<PaymentForm>({
-    resolver: zodResolver(paymentSchema),
+    resolver: zodResolver(paymentSchema) as Resolver<PaymentForm>,
     defaultValues: {
       payment_date: new Date().toISOString().slice(0, 10),
       payment_mode: 'bank_transfer',

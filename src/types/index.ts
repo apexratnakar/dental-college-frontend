@@ -863,7 +863,7 @@ export interface HostelComplaint {
   created_at: string;
 }
 
-export interface AttendanceEntry {
+export interface HostelAttendanceEntry {
   student_id: number;
   student_name: string;
   enrollment_number: string;
@@ -876,7 +876,7 @@ export interface HostelAttendanceRecord {
   hostel_name: string;
   date: string;
   marked_by_name: string | null;
-  entries: AttendanceEntry[];
+  entries: HostelAttendanceEntry[];
   present_count: number;
   absent_count: number;
   on_leave_count: number;

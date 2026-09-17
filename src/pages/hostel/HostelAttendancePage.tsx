@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { CheckSquare } from 'lucide-react';
 import { hostelApi } from '../../services/api';
 import { Spinner } from '../../components/common/Spinner';

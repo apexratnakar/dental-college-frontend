@@ -52,11 +52,11 @@ function RoomModal({ room, onClose, onSaved }: ModalProps) {
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm({
     defaultValues: room ?? {
       room_number: '', building: '', floor: '', room_type: 'classroom' as ClassroomType,
-      capacity: '', department: '', facilities: '', status: 'active' as ClassroomStatus,
+      capacity: null, department: '', facilities: '', status: 'active' as ClassroomStatus,
     },
   });
 
-  const onSubmit = async (values: Record<string, unknown>) => {
+  const onSubmit = async (values: Classroom) => {
     setError(null);
     try {
       const payload = {

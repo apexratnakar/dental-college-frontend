@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useForm } from 'react-hook-form';
+import { useForm, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Plus, Pencil, Trash2, Clock, GripVertical } from 'lucide-react';
@@ -67,7 +67,7 @@ function SlotModal({ slot, nextOrder, onClose, onSaved }: ModalProps) {
   const [error, setError] = useState<string | null>(null);
 
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<SlotForm>({
-    resolver: zodResolver(slotSchema),
+    resolver: zodResolver(slotSchema) as Resolver<SlotForm>,
     defaultValues: slot
       ? { ...slot, start_time: fmt(slot.start_time), end_time: fmt(slot.end_time) }
       : { name: '', start_time: '09:00', end_time: '10:00', slot_type: 'period', order_index: nextOrder, is_active: true },

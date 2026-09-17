@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useForm } from 'react-hook-form';
+import { useForm, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Plus, Pencil, Trash2, Clock, MapPin } from 'lucide-react';
@@ -103,7 +103,7 @@ function SlotModal({ slot, defaultSession, defaultCourse, defaultSection, onClos
     setValue,
     formState: { errors, isSubmitting },
   } = useForm<SlotFormData>({
-    resolver: zodResolver(slotSchema),
+    resolver: zodResolver(slotSchema) as Resolver<SlotFormData>,
     defaultValues: slot
       ? {
           academic_session_id: slot.academic_session_id,
