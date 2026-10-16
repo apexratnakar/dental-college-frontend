@@ -9,11 +9,12 @@ import type { StoreVendor } from '../../types';
 import { PageTitle } from '../../components/common/PageTitle';
 import { ConfirmModal } from '../../components/modals/ConfirmModal';
 import { getErrorMessage } from '../../types';
+import { digitsOnly, mobileField, mobileInputProps } from '../../utils/validation';
 
 const schema = z.object({
   name: z.string().min(1, 'Name is required'),
   contact_person: z.string().optional(),
-  phone: z.string().optional(),
+  phone: mobileField,
   email: z.string().email().optional().or(z.literal('')),
   address: z.string().optional(),
   gst_number: z.string().optional(),
@@ -44,6 +45,7 @@ export function StoreVendorsPage() {
     resolver: zodResolver(schema),
     defaultValues: { is_active: true },
   });
+  const phoneReg = register('phone');
 
   const saveMutation = useMutation({
     mutationFn: (d: FormData) => editItem ? storeApi.updateVendor(editItem.id, d) : storeApi.createVendor(d),
@@ -131,7 +133,15 @@ export function StoreVendorsPage() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div><label className="block text-sm font-medium text-slate-700 mb-1">Contact Person</label><input {...register('contact_person')} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" /></div>
-                <div><label className="block text-sm font-medium text-slate-700 mb-1">Phone</label><input {...register('phone')} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" /></div>
+                <div><label className="block text-sm font-medium text-slate-700 mb-1">Phone</label>
+                  <input
+                    {...phoneReg}
+                    {...mobileInputProps}
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                    onChange={(e) => phoneReg.onChange(digitsOnly(e))}
+                  />
+                  {errors.phone && <p className="mt-1 text-xs text-red-500">{errors.phone.message}</p>}
+                </div>
               </div>
               <div><label className="block text-sm font-medium text-slate-700 mb-1">Email</label><input type="email" {...register('email')} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" /></div>
               <div><label className="block text-sm font-medium text-slate-700 mb-1">Address</label><textarea {...register('address')} rows={2} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" /></div>

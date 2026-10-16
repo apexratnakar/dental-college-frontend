@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import api from '../../services/api';
+import { getErrorMessage } from '../../types';
 import { PageTitle } from '../../components/common/PageTitle';
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -82,6 +83,16 @@ const loanSchema = z.object({
   start_year: z.coerce.number().min(2020).max(2099),
 });
 type LoanForm = z.infer<typeof loanSchema>;
+
+/** Monthly EMI on a reducing balance — same formula as the backend (calculate_emi). */
+function calcEmi(principal: number, annualRatePct: number, months: number): number {
+  if (!(principal > 0) || !(months >= 1)) return 0;
+  const r = (annualRatePct || 0) / 1200;
+  if (r === 0) return Math.round((principal / months) * 100) / 100;
+  const g = Math.pow(1 + r, months);
+  return Math.round(((principal * r * g) / (g - 1)) * 100) / 100;
+}
+const rupees = (n: number) => `₹${n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 const advanceSchema = z.object({
   employee_id: z.coerce.number().min(1, 'Employee required'),
@@ -194,7 +205,7 @@ export function LoansPage() {
       <div className="flex items-center justify-between">
         <PageTitle title="Loans & Advances" subtitle="Manage employee loans and salary advances" />
         <button
-          onClick={() => activeTab === 'loans' ? (loanForm.reset({ loan_type: 'personal', interest_rate: 0, start_month: currentMonth, start_year: currentYear }), setShowLoanModal(true)) : (advanceForm.reset({ advance_date: new Date().toISOString().split('T')[0], recovery_months: 1 }), setShowAdvanceModal(true))}
+          onClick={() => activeTab === 'loans' ? (loanForm.reset({ loan_type: 'personal', interest_rate: 0, start_month: currentMonth, start_year: currentYear }), createLoanMutation.reset(), setShowLoanModal(true)) : (advanceForm.reset({ advance_date: new Date().toISOString().split('T')[0], recovery_months: 1 }), createAdvanceMutation.reset(), setShowAdvanceModal(true))}
           className="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
         >
           <Plus className="h-4 w-4" /> {activeTab === 'loans' ? 'New Loan' : 'New Advance'}
@@ -470,6 +481,29 @@ export function LoansPage() {
                 <textarea {...loanForm.register('purpose')} rows={2} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
                 {loanForm.formState.errors.purpose && <p className="text-xs text-red-500 mt-1">{loanForm.formState.errors.purpose.message}</p>}
               </div>
+              {(() => {
+                const amount = Number(loanForm.watch('loan_amount')) || 0;
+                const rate = Number(loanForm.watch('interest_rate')) || 0;
+                const months = Number(loanForm.watch('total_installments')) || 0;
+                const emi = calcEmi(amount, rate, months);
+                if (!emi) return (
+                  <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500">Enter the amount and number of installments to see the monthly EMI.</p>
+                );
+                const total = emi * months;
+                return (
+                  <div className="grid grid-cols-3 gap-2 rounded-lg border border-primary-100 bg-primary-50/50 px-3 py-2.5 text-center">
+                    <div><p className="text-[11px] text-slate-500">Monthly EMI</p><p className="text-sm font-semibold tabular-nums text-slate-900">{rupees(emi)}</p></div>
+                    <div><p className="text-[11px] text-slate-500">Total interest</p><p className="text-sm font-semibold tabular-nums text-slate-900">{rupees(Math.max(total - amount, 0))}</p></div>
+                    <div><p className="text-[11px] text-slate-500">Total payable</p><p className="text-sm font-semibold tabular-nums text-slate-900">{rupees(total)}</p></div>
+                  </div>
+                );
+              })()}
+              {Object.keys(loanForm.formState.errors).some((k) => !['employee_id', 'loan_amount', 'total_installments', 'purpose'].includes(k)) && (
+                <p className="text-xs text-red-500">Check the interest rate (0–100%), start month and start year.</p>
+              )}
+              {createLoanMutation.isError && (
+                <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{getErrorMessage(createLoanMutation.error)}</p>
+              )}
               <div className="flex justify-end gap-3 pt-2">
                 <button type="button" onClick={() => setShowLoanModal(false)} className="rounded-lg px-4 py-2 text-sm text-slate-600 hover:bg-slate-100">Cancel</button>
                 <button type="submit" disabled={createLoanMutation.isPending} className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50">
@@ -510,12 +544,16 @@ export function LoansPage() {
               <div>
                 <label className="block text-xs font-medium text-slate-600 mb-1">Advance Date *</label>
                 <input type="date" {...advanceForm.register('advance_date')} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
+                {advanceForm.formState.errors.advance_date && <p className="text-xs text-red-500 mt-1">{advanceForm.formState.errors.advance_date.message}</p>}
               </div>
               <div>
                 <label className="block text-xs font-medium text-slate-600 mb-1">Reason *</label>
                 <textarea {...advanceForm.register('reason')} rows={2} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
                 {advanceForm.formState.errors.reason && <p className="text-xs text-red-500 mt-1">{advanceForm.formState.errors.reason.message}</p>}
               </div>
+              {createAdvanceMutation.isError && (
+                <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{getErrorMessage(createAdvanceMutation.error)}</p>
+              )}
               <div className="flex justify-end gap-3 pt-2">
                 <button type="button" onClick={() => setShowAdvanceModal(false)} className="rounded-lg px-4 py-2 text-sm text-slate-600 hover:bg-slate-100">Cancel</button>
                 <button type="submit" disabled={createAdvanceMutation.isPending} className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50">

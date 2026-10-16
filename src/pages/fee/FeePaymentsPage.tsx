@@ -16,6 +16,7 @@ import type {
   AcademicSession, Student, StudentFeeStatement, PaginatedResponse,
   OrganizationSettings,
 } from '../../types';
+import { usePrefillCurrentSession } from '../../hooks/useCurrentSession';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -82,7 +83,7 @@ function PaymentModal({
     },
   });
 
-  const { register, handleSubmit, watch, setValue, formState: { errors, isSubmitting } } = useForm<PaymentForm>({
+  const { getValues, register, handleSubmit, watch, setValue, formState: { errors, isSubmitting } } = useForm<PaymentForm>({
     resolver: zodResolver(paymentSchema),
     defaultValues: {
       student_id: prefilledStudentId ?? undefined,
@@ -93,6 +94,12 @@ function PaymentModal({
     },
   });
 
+  // New records default to the current academic session
+  usePrefillCurrentSession(
+    () => !getValues('academic_session_id'),
+    (id) => setValue('academic_session_id', id),
+    !!sessions?.length,
+  );
   const selectedSessionId = watch('academic_session_id');
   const selectedStudentId = watch('student_id');
   const selectedCategory = watch('fee_category');
@@ -129,9 +136,11 @@ function PaymentModal({
   // Find the balance line for the currently selected category / structure
   const balanceLine = (() => {
     if (!statement?.lines) return null;
+    // Hostel-module charges are collected in Hostel → Fee Payments, never here
+    const courseLines = statement.lines.filter((l) => l.source !== 'hostel');
     const fsId = selectedFeeStructureId ? Number(selectedFeeStructureId) : null;
-    if (fsId) return statement.lines.find((l) => l.fee_structure_id === fsId) ?? null;
-    return statement.lines.find((l) => l.fee_category === selectedCategory) ?? null;
+    if (fsId) return courseLines.find((l) => l.fee_structure_id === fsId) ?? null;
+    return courseLines.find((l) => l.fee_category === selectedCategory) ?? null;
   })();
 
   // Auto-fill remaining balance when category or structure changes
@@ -521,9 +530,18 @@ function StatementCard({ stmt }: { stmt: StudentFeeStatement }) {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50">
-            {stmt.lines.map((line) => (
-              <tr key={`${line.fee_category}-${line.fee_structure_id}`}>
-                <td className="py-2 text-slate-700">{CATEGORY_LABELS[line.fee_category]}</td>
+            {stmt.lines.map((line, i) => (
+              <tr key={`${line.source ?? 'course'}-${line.fee_category}-${line.fee_structure_id ?? i}`}>
+                <td className="py-2 text-slate-700">
+                  {CATEGORY_LABELS[line.fee_category]}
+                  {line.source === 'hostel' && (
+                    <>
+                      <span className="ml-1.5 rounded bg-indigo-50 px-1.5 py-0.5 text-[10px] font-medium text-indigo-700">Hostel module</span>
+                      <p className="text-xs text-slate-500">{line.description}</p>
+                      {line.receipt_no && <p className="text-[11px] text-slate-400">Receipt {line.receipt_no}</p>}
+                    </>
+                  )}
+                </td>
                 <td className="py-2 text-right text-slate-500">
                   {line.amount_due > 0 ? `₹${line.amount_due.toLocaleString('en-IN')}` : '—'}
                 </td>
@@ -714,7 +732,7 @@ export function FeePaymentsPage() {
           >
             <option value="">All Sessions</option>
             {sessions?.map((s) => (
-              <option key={s.id} value={s.id}>{s.name}</option>
+              <option key={s.id} value={s.id}>{s.name}{s.is_current ? ' (Current)' : ''}</option>
             ))}
           </select>
         </div>

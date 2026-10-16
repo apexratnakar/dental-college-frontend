@@ -10,6 +10,7 @@ import { PageTitle } from '../../components/common/PageTitle';
 import { ConfirmModal } from '../../components/modals/ConfirmModal';
 import { getErrorMessage } from '../../types';
 import type { TimetableSlot, DayOfWeek } from '../../types';
+import { useCurrentSession } from '../../hooks/useCurrentSession';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -84,7 +85,7 @@ function SlotModal({ slot, defaultSession, defaultCourse, defaultSection, onClos
     queryKey: ['academic-sessions'],
     queryFn: async () => {
       const { data } = await sessionsApi.list();
-      return data as { id: number; name: string }[];
+      return data as { id: number; name: string; is_current?: boolean }[];
     },
   });
 
@@ -206,7 +207,7 @@ function SlotModal({ slot, defaultSession, defaultCourse, defaultSection, onClos
                     }}
                   >
                     <option value="">Select…</option>
-                    {sessions?.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    {sessions?.map((s) => <option key={s.id} value={s.id}>{s.name}{s.is_current ? ' (Current)' : ''}</option>)}
                   </select>
                   {errors.academic_session_id && <p className="form-error">{errors.academic_session_id.message}</p>}
                 </div>
@@ -316,7 +317,10 @@ function SlotModal({ slot, defaultSession, defaultCourse, defaultSection, onClos
 
 export function TimetablePage() {
   const qc = useQueryClient();
-  const [sessionId, setSessionId] = useState('');
+  const [sessionIdChoice, setSessionId] = useState<string | null>(null);
+  const currentSession = useCurrentSession();
+  // Current session until the user picks another one
+  const sessionId = sessionIdChoice ?? (currentSession ? String(currentSession.id) : '');
   const [courseId, setCourseId] = useState('');
   const [sectionId, setSectionId] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
@@ -328,7 +332,7 @@ export function TimetablePage() {
     queryKey: ['academic-sessions'],
     queryFn: async () => {
       const { data } = await sessionsApi.list();
-      return data as { id: number; name: string }[];
+      return data as { id: number; name: string; is_current?: boolean }[];
     },
   });
 
@@ -422,7 +426,7 @@ export function TimetablePage() {
             >
               <option value="">Select session…</option>
               {sessions?.map((s) => (
-                <option key={s.id} value={s.id}>{s.name}</option>
+                <option key={s.id} value={s.id}>{s.name}{s.is_current ? ' (Current)' : ''}</option>
               ))}
             </select>
           </div>

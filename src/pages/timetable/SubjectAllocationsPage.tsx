@@ -8,6 +8,8 @@ import { PageTitle } from '../../components/common/PageTitle';
 import { ConfirmModal } from '../../components/modals/ConfirmModal';
 import { getErrorMessage } from '../../types';
 import type { FacultySubjectAllocation } from '../../types';
+import { useCurrentSession } from '../../hooks/useCurrentSession';
+import { usePrefillCurrentSession } from '../../hooks/useCurrentSession';
 
 // ── Modal ─────────────────────────────────────────────────────────────────────
 
@@ -19,7 +21,7 @@ interface ModalProps {
 function AllocationModal({ onClose, onSaved }: ModalProps) {
   const [error, setError] = useState<string | null>(null);
 
-  const { register, handleSubmit, watch, formState: { errors, isSubmitting } } = useForm({
+  const { getValues, setValue, register, handleSubmit, watch, formState: { errors, isSubmitting } } = useForm({
     defaultValues: {
       session_id: '', section_id: '', subject_id: '', faculty_id: '', hours_per_week: '',
     },
@@ -31,9 +33,16 @@ function AllocationModal({ onClose, onSaved }: ModalProps) {
     queryKey: ['academic-sessions'],
     queryFn: async () => {
       const { data } = await sessionsApi.list();
-      return data as { id: number; name: string }[];
+      return data as { id: number; name: string; is_current?: boolean }[];
     },
   });
+
+  // New records default to the current academic session
+  usePrefillCurrentSession(
+    () => !getValues('session_id'),
+    (id) => setValue('session_id', String(id)),
+    !!sessions?.length,
+  );
 
   const { data: sections } = useQuery({
     queryKey: ['sections', watchedSession],
@@ -89,7 +98,7 @@ function AllocationModal({ onClose, onSaved }: ModalProps) {
               <label className="form-label">Academic Session *</label>
               <select {...register('session_id', { required: 'Required' })} className="input w-full">
                 <option value="">Select…</option>
-                {sessions?.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                {sessions?.map((s) => <option key={s.id} value={s.id}>{s.name}{s.is_current ? ' (Current)' : ''}</option>)}
               </select>
               {errors.session_id && <p className="form-error">{errors.session_id.message as string}</p>}
             </div>
@@ -154,14 +163,17 @@ export function SubjectAllocationsPage() {
   const qc = useQueryClient();
   const [modal, setModal] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<FacultySubjectAllocation | null>(null);
-  const [filterSession, setFilterSession] = useState('');
+  const [filterSessionChoice, setFilterSession] = useState<string | null>(null);
+  const currentSession = useCurrentSession();
+  // Current session until the user picks another one
+  const filterSession = filterSessionChoice ?? (currentSession ? String(currentSession.id) : '');
   const [filterSection, setFilterSection] = useState('');
 
   const { data: sessions } = useQuery({
     queryKey: ['academic-sessions'],
     queryFn: async () => {
       const { data } = await sessionsApi.list();
-      return data as { id: number; name: string }[];
+      return data as { id: number; name: string; is_current?: boolean }[];
     },
   });
 
@@ -224,7 +236,7 @@ export function SubjectAllocationsPage() {
               className="input w-full"
             >
               <option value="">All Sessions</option>
-              {sessions?.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+              {sessions?.map((s) => <option key={s.id} value={s.id}>{s.name}{s.is_current ? ' (Current)' : ''}</option>)}
             </select>
           </div>
           <div>

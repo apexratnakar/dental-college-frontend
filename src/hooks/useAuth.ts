@@ -52,5 +52,13 @@ export function useAuth() {
     return roleNames.some((r) => hasRole(r));
   };
 
-  return { user, isAuthenticated, isLoading, login, logout: logoutUser, hasRole, hasAnyRole };
+  /** True when the user holds at least one of the given permissions. */
+  const can = (...perms: string[]): boolean => {
+    const granted = user?.permissions ?? [];
+    return perms.some((p) => granted.includes(p));
+  };
+
+  const isStudent = !!user?.student_id;
+
+  return { user, isAuthenticated, isLoading, login, logout: logoutUser, hasRole, hasAnyRole, can, isStudent };
 }

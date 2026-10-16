@@ -1,42 +1,57 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Search, Plus, Pencil, Trash2, X, UserPlus, AlertCircle, RefreshCw,
 } from 'lucide-react';
-import { facultyApi, usersApi, rolesApi } from '../../services/api';
+import { employeeApi, facultyApi, usersApi, rolesApi } from '../../services/api';
 import { PageTitle } from '../../components/common/PageTitle';
 import { Spinner } from '../../components/common/Spinner';
 import { ConfirmModal } from '../../components/modals/ConfirmModal';
-import type { Faculty, Role, PaginatedResponse } from '../../types';
+import type { Department, Designation, Faculty, Role, PaginatedResponse } from '../../types';
 import { getErrorMessage } from '../../types';
+import { useAuth } from '../../hooks/useAuth';
+import { digitsOnly, isValidMobile, MOBILE_ERROR, mobileInputProps } from '../../utils/validation';
 
-// ── Dental college constants ──────────────────────────────────────────────────
+// ── Department / designation masters ──────────────────────────────────────────
+// Managed under Employee Management › Departments and › Designations.
 
-const DEPARTMENTS = [
-  'Oral & Maxillofacial Surgery',
-  'Orthodontics & Dentofacial Orthopedics',
-  'Conservative Dentistry & Endodontics',
-  'Periodontics',
-  'Prosthodontics & Crown & Bridge',
-  'Pedodontics & Preventive Dentistry',
-  'Oral Medicine & Radiology',
-  'Oral Pathology & Microbiology',
-  'Public Health Dentistry',
-  'Basic Sciences',
-];
+function useFacultyMasters() {
+  const { can } = useAuth();
+  const enabled = can('employees:read');
+  const { data: departments = [] } = useQuery<Department[]>({
+    queryKey: ['departments', 'active'],
+    queryFn: () => employeeApi.listDepartments({ is_active: true }).then((r) => r.data),
+    enabled,
+  });
+  const { data: designations = [] } = useQuery<Designation[]>({
+    queryKey: ['designations', 'active'],
+    queryFn: () => employeeApi.listDesignations({ is_active: true }).then((r) => r.data),
+    enabled,
+  });
+  return {
+    departments: departments.map((d) => d.name),
+    // Librarian, Warden etc. are staff designations — faculty pick from teaching ones
+    designations: designations.filter((d) => d.category === 'teaching').map((d) => d.name),
+    canManage: can('employees:create'),
+  };
+}
 
-const DESIGNATIONS = [
-  'Professor & HOD',
-  'Professor',
-  'Associate Professor',
-  'Assistant Professor',
-  'Senior Lecturer',
-  'Lecturer',
-  'Tutor',
-  'Demonstrator',
-  'Clinical Instructor',
-  'Resident',
-];
+/** Keeps a saved value selectable even if it was renamed or removed from the master. */
+function withCurrent(options: string[], current: string): string[] {
+  return current && !options.includes(current) ? [current, ...options] : options;
+}
+
+function MasterLabel({ label, required, to, canManage }: { label: string; required?: boolean; to: string; canManage: boolean }) {
+  return (
+    <div className="mb-1 flex items-center justify-between">
+      <label className="block text-xs font-medium text-slate-700">{label}{required && ' *'}</label>
+      {canManage && (
+        <Link to={to} target="_blank" className="text-xs text-primary-600 hover:underline">Manage</Link>
+      )}
+    </div>
+  );
+}
 
 // ── Add Faculty Modal ─────────────────────────────────────────────────────────
 
@@ -73,9 +88,13 @@ function AddFacultyModal({
   roles: Role[];
   onSuccess: () => void;
 }) {
+  const masters = useFacultyMasters();
   const [form, setForm] = useState<AddForm>(defaultAddForm);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // A faculty login must never carry the Student role
+  const assignableRoles = roles.filter((r) => r.name.toLowerCase() !== 'student');
 
   useEffect(() => {
     const facultyRole = roles.find((r) => r.name === 'Faculty');
@@ -96,6 +115,7 @@ function AddFacultyModal({
     }
     if (!form.employee_id.trim()) { setError('Employee ID is required'); return; }
     if (!form.designation) { setError('Designation is required'); return; }
+    if (!isValidMobile(form.mobile_number)) { setError(MOBILE_ERROR); return; }
 
     setIsSubmitting(true);
     try {
@@ -172,7 +192,12 @@ function AddFacultyModal({
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-medium text-slate-700">Mobile</label>
-                  <input value={form.mobile_number} onChange={set('mobile_number')} className={inputCls} />
+                  <input
+                    {...mobileInputProps}
+                    value={form.mobile_number}
+                    onChange={(e) => set('mobile_number')(digitsOnly(e))}
+                    className={inputCls}
+                  />
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-medium text-slate-700">Password *</label>
@@ -198,7 +223,7 @@ function AddFacultyModal({
                   <label className="mb-1 block text-xs font-medium text-slate-700">System Role</label>
                   <select value={form.role_id} onChange={set('role_id')} className={inputCls}>
                     <option value="">— No role —</option>
-                    {roles.map((r) => (
+                    {assignableRoles.map((r) => (
                       <option key={r.id} value={r.id}>
                         {r.name}
                       </option>
@@ -218,10 +243,10 @@ function AddFacultyModal({
                   <input value={form.employee_id} onChange={set('employee_id')} required className={inputCls} />
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-slate-700">Designation *</label>
+                  <MasterLabel label="Designation" required to="/employees/designations" canManage={masters.canManage} />
                   <select value={form.designation} onChange={set('designation')} required className={inputCls}>
                     <option value="">Select designation</option>
-                    {DESIGNATIONS.map((d) => (
+                    {withCurrent(masters.designations, form.designation).map((d) => (
                       <option key={d} value={d}>
                         {d}
                       </option>
@@ -229,10 +254,10 @@ function AddFacultyModal({
                   </select>
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-slate-700">Department</label>
+                  <MasterLabel label="Department" to="/employees/departments" canManage={masters.canManage} />
                   <select value={form.department} onChange={set('department')} className={inputCls}>
                     <option value="">Select department</option>
-                    {DEPARTMENTS.map((d) => (
+                    {withCurrent(masters.departments, form.department).map((d) => (
                       <option key={d} value={d}>
                         {d}
                       </option>
@@ -321,6 +346,7 @@ function EditFacultyModal({
   onClose: () => void;
   onSuccess: () => void;
 }) {
+  const masters = useFacultyMasters();
   const [form, setForm] = useState<EditForm>({
     designation: faculty.designation ?? '',
     department: faculty.department ?? '',
@@ -392,10 +418,10 @@ function EditFacultyModal({
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="mb-1 block text-xs font-medium text-slate-700">Designation *</label>
+                <MasterLabel label="Designation" required to="/employees/designations" canManage={masters.canManage} />
                 <select value={form.designation} onChange={set('designation')} required className={inputCls}>
                   <option value="">Select designation</option>
-                  {DESIGNATIONS.map((d) => (
+                  {withCurrent(masters.designations, form.designation).map((d) => (
                     <option key={d} value={d}>
                       {d}
                     </option>
@@ -403,10 +429,10 @@ function EditFacultyModal({
                 </select>
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium text-slate-700">Department</label>
+                <MasterLabel label="Department" to="/employees/departments" canManage={masters.canManage} />
                 <select value={form.department} onChange={set('department')} className={inputCls}>
                   <option value="">Select department</option>
-                  {DEPARTMENTS.map((d) => (
+                  {withCurrent(masters.departments, form.department).map((d) => (
                     <option key={d} value={d}>
                       {d}
                     </option>
@@ -491,6 +517,7 @@ function EditFacultyModal({
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export function FacultyPage() {
+  const { can } = useAuth();
   const qc = useQueryClient();
   const [search, setSearch] = useState('');
   const [deptFilter, setDeptFilter] = useState('');
@@ -512,9 +539,21 @@ export function FacultyPage() {
     },
   });
 
+  // Filter by the department master; users who can't read it get the departments in the current list
+  const masters = useFacultyMasters();
+  const deptOptions = withCurrent(
+    masters.departments.length
+      ? masters.departments
+      : [...new Set((data?.items ?? []).map((f) => f.department).filter((d): d is string => !!d))],
+    deptFilter,
+  );
+
+  // Adding faculty creates a login, so it needs both permissions; the roles list is only for that form.
+  const canAddFaculty = can('faculty:create') && can('users:create');
   const { data: roles = [] } = useQuery<Role[]>({
     queryKey: ['roles'],
     queryFn: () => rolesApi.list().then((r: { data: Role[] }) => r.data),
+    enabled: canAddFaculty && can('roles:read'),
   });
 
   const deleteMutation = useMutation({
@@ -555,22 +594,24 @@ export function FacultyPage() {
           className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-500"
         >
           <option value="">All Departments</option>
-          {DEPARTMENTS.map((d) => (
+          {deptOptions.map((d) => (
             <option key={d} value={d}>
               {d}
             </option>
           ))}
         </select>
 
-        <div className="ml-auto">
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
-          >
-            <Plus className="h-4 w-4" />
-            Add Faculty
-          </button>
-        </div>
+        {canAddFaculty && (
+          <div className="ml-auto">
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
+            >
+              <Plus className="h-4 w-4" />
+              Add Faculty
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="card overflow-hidden">

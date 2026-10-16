@@ -82,7 +82,7 @@ export function LeaveBalancePage() {
 
   const { data: departments = [] } = useQuery<Department[]>({
     queryKey: ['departments-list'],
-    queryFn: () => api.get('/departments').then((r) => r.data),
+    queryFn: () => api.get('/employees/departments').then((r) => r.data),
   });
 
   const { data: empData } = useQuery<{ items: Employee[] }>({

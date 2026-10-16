@@ -75,12 +75,12 @@ function MemberModal({
     },
   });
 
-  // Load employees for dropdown
+  // Load employees for dropdown (lookup endpoint: names only, works for librarians)
   const { data: employeesData } = useQuery({
-    queryKey: ['employees-for-select'],
+    queryKey: ['employees-lookup'],
     queryFn: async () => {
-      const { data } = await employeeApi.listEmployees({ per_page: 500 });
-      return data;
+      const { data } = await employeeApi.lookupEmployees();
+      return { items: data };
     },
   });
 

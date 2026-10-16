@@ -9,6 +9,7 @@ import { Spinner } from '../../components/common/Spinner';
 import { PageTitle } from '../../components/common/PageTitle';
 import { getErrorMessage } from '../../types';
 import type { FeeStructure, FeeCategory, AcademicSession, Course } from '../../types';
+import { usePrefillCurrentSession } from '../../hooks/useCurrentSession';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -72,7 +73,7 @@ function StructureModal({
     },
   });
 
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<StructureForm>({
+  const { getValues, setValue, register, handleSubmit, formState: { errors, isSubmitting } } = useForm<StructureForm>({
     resolver: zodResolver(structureSchema),
     defaultValues: structure
       ? {
@@ -88,6 +89,12 @@ function StructureModal({
       : { year_of_study: 1, fee_category: 'tuition', is_active: true },
   });
 
+  // New records default to the current academic session
+  usePrefillCurrentSession(
+    () => !getValues('academic_session_id'),
+    (id) => setValue('academic_session_id', id),
+    !structure && !!sessions?.length,
+  );
   const onSubmit = async (values: StructureForm) => {
     setError(null);
     try {
@@ -133,7 +140,7 @@ function StructureModal({
               >
                 <option value="">Select…</option>
                 {sessions?.map((s) => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
+                  <option key={s.id} value={s.id}>{s.name}{s.is_current ? ' (Current)' : ''}</option>
                 ))}
               </select>
               {errors.academic_session_id && <p className="form-error">{errors.academic_session_id.message}</p>}
@@ -313,7 +320,7 @@ export function FeeStructurePage() {
         >
           <option value="">All Sessions</option>
           {sessions?.map((s) => (
-            <option key={s.id} value={s.id}>{s.name}</option>
+            <option key={s.id} value={s.id}>{s.name}{s.is_current ? ' (Current)' : ''}</option>
           ))}
         </select>
         <select

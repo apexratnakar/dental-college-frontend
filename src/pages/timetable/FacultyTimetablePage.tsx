@@ -5,6 +5,7 @@ import { sessionsApi, facultyApi, timetableApi } from '../../services/api';
 import { Spinner } from '../../components/common/Spinner';
 import { PageTitle } from '../../components/common/PageTitle';
 import type { TimetableSlot, DayOfWeek } from '../../types';
+import { useCurrentSession } from '../../hooks/useCurrentSession';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -59,7 +60,10 @@ function WorkloadCard({ slots }: { slots: TimetableSlot[] }) {
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export function FacultyTimetablePage() {
-  const [sessionId, setSessionId]   = useState('');
+  const [sessionIdChoice, setSessionId] = useState<string | null>(null);
+  const currentSession = useCurrentSession();
+  // Current session until the user picks another one
+  const sessionId = sessionIdChoice ?? (currentSession ? String(currentSession.id) : '');
   const [facultyId, setFacultyId]   = useState('');
   const [viewMode, setViewMode]     = useState<'grid' | 'list'>('grid');
 
@@ -67,7 +71,7 @@ export function FacultyTimetablePage() {
     queryKey: ['academic-sessions'],
     queryFn: async () => {
       const { data } = await sessionsApi.list();
-      return data as { id: number; name: string }[];
+      return data as { id: number; name: string; is_current?: boolean }[];
     },
   });
 
@@ -118,7 +122,7 @@ export function FacultyTimetablePage() {
               className="input w-full"
             >
               <option value="">Select session…</option>
-              {sessions?.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+              {sessions?.map((s) => <option key={s.id} value={s.id}>{s.name}{s.is_current ? ' (Current)' : ''}</option>)}
             </select>
           </div>
           <div>

@@ -99,7 +99,7 @@ export function StudentsPage() {
           className="input-field text-sm"
         >
           <option value="">All Sessions</option>
-          {sessions?.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+          {sessions?.map((s) => <option key={s.id} value={s.id}>{s.name}{s.is_current ? ' (Current)' : ''}</option>)}
         </select>
         <select
           value={filterStatus}

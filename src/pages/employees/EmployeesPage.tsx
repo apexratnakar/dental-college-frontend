@@ -8,6 +8,7 @@ import { UserPlus, Search, Trash2, Eye, X, Building2 } from 'lucide-react';
 import { employeeApi } from '../../services/api';
 import type { EmployeeListItem, Department } from '../../types';
 import { getErrorMessage } from '../../types';
+import { digitsOnly, mobileField, mobileInputProps } from '../../utils/validation';
 
 const CATEGORY_COLORS: Record<string, string> = {
   teaching: 'bg-blue-100 text-blue-700',
@@ -31,7 +32,7 @@ const createSchema = z.object({
   employee_code: z.string().min(1, 'Employee code is required'),
   first_name: z.string().min(1, 'First name is required'),
   last_name: z.string().optional(),
-  mobile: z.string().optional(),
+  mobile: mobileField,
   official_email: z.string().email('Invalid email').optional().or(z.literal('')),
   department_id: z.number().optional().nullable(),
   designation_id: z.number().optional().nullable(),
@@ -78,6 +79,7 @@ export function EmployeesPage() {
     resolver: zodResolver(createSchema) as any,
     defaultValues: { category: 'administrative', employment_type: 'full_time', status: 'active' },
   });
+  const mobileReg = register('mobile');
 
   const createMutation = useMutation({
     mutationFn: (data: CreateForm) => {
@@ -309,7 +311,13 @@ export function EmployeesPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Mobile</label>
-                  <input {...register('mobile')} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+                  <input
+                    {...mobileReg}
+                    {...mobileInputProps}
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                    onChange={(e) => mobileReg.onChange(digitsOnly(e))}
+                  />
+                  {errors.mobile && <p className="text-xs text-red-500 mt-1">{errors.mobile.message}</p>}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Official Email</label>

@@ -14,6 +14,7 @@ import type {
   AttendanceRecord, AcademicSession, Subject, Section,
   PaginatedResponse,
 } from '../../types';
+import { usePrefillCurrentSession } from '../../hooks/useCurrentSession';
 
 // ── Create modal ──────────────────────────────────────────────────────────────
 
@@ -37,11 +38,17 @@ function NewSessionModal({
   onClose: () => void;
 }) {
   const qc = useQueryClient();
-  const { register, handleSubmit, watch, formState: { errors } } = useForm<RecordFormData>({
+  const { getValues, setValue, register, handleSubmit, watch, formState: { errors } } = useForm<RecordFormData>({
     resolver: zodResolver(recordSchema),
     defaultValues: { record_date: new Date().toISOString().slice(0, 10) },
   });
 
+  // New records default to the current academic session
+  usePrefillCurrentSession(
+    () => !getValues('academic_session_id'),
+    (id) => setValue('academic_session_id', id),
+    sessions.length > 0,
+  );
   const sessionId = watch('academic_session_id');
 
   const { data: subjects } = useQuery({
@@ -96,7 +103,7 @@ function NewSessionModal({
               >
                 <option value={0}>Select…</option>
                 {sessions.map((s) => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
+                  <option key={s.id} value={s.id}>{s.name}{s.is_current ? ' (Current)' : ''}</option>
                 ))}
               </select>
               {errors.academic_session_id && (
@@ -268,7 +275,7 @@ export function AttendancePage() {
           className="input-field text-sm"
         >
           <option value="">All Sessions</option>
-          {sessions?.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+          {sessions?.map((s) => <option key={s.id} value={s.id}>{s.name}{s.is_current ? ' (Current)' : ''}</option>)}
         </select>
         <select
           value={filterSection ?? ''}

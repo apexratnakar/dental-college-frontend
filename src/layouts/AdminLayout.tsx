@@ -2,8 +2,6 @@ import { Fragment, useState } from 'react';
 import { NavLink, Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import {
   GraduationCap,
-  LayoutDashboard,
-  Users,
   ChevronLeft,
   ChevronRight,
   Bell,
@@ -11,60 +9,8 @@ import {
   User,
   ChevronDown,
   Menu,
-  Shield,
   Search,
   X,
-  ClipboardList,
-  BookOpen,
-  Layers,
-  Calendar,
-  BookMarked,
-  UserCheck,
-  UserPlus,
-  FileCheck,
-  BookOpenCheck,
-  FileSignature,
-  Award,
-  CalendarCheck,
-  BarChart3,
-  CalendarDays,
-  Library,
-  BookCopy,
-  Building2,
-  IndianRupee,
-  Receipt,
-  Briefcase,
-  DollarSign,
-  Banknote,
-  Calculator,
-  LayoutGrid,
-  UsersRound,
-  Scale,
-  Barcode,
-  CalendarClock,
-  ClipboardCheck,
-  FileText,
-  Wallet,
-  UserMinus,
-  PiggyBank,
-  Package,
-  Tag,
-  Truck,
-  ShoppingCart,
-  PackageCheck,
-  PackageOpen,
-  Undo2,
-  ArrowLeftRight,
-  SlidersHorizontal,
-  MonitorCheck,
-  AlertTriangle,
-  CalendarOff,
-  Users2,
-  AlertCircle,
-  CheckSquare,
-  BedDouble,
-  Clock,
-  UserCog,
   Home,
   Maximize2,
   Minimize2,
@@ -72,168 +18,8 @@ import {
 } from 'lucide-react';
 import { cn } from '../utils';
 import { useAuth } from '../hooks/useAuth';
-
-interface NavItem {
-  label: string;
-  to: string;
-  /** If defined, active only when current search string matches ('' = no params) */
-  matchSearch?: string;
-  icon: React.ComponentType<{ className?: string }>;
-  roles?: string[];
-}
-
-interface NavGroup {
-  heading: string;
-  items: NavItem[];
-}
-
-const NAV_GROUPS: NavGroup[] = [
-  {
-    heading: 'General',
-    items: [
-      { label: 'Dashboard', to: '/dashboard', icon: LayoutDashboard },
-    ],
-  },
-  {
-    heading: 'Administration',
-    items: [
-      { label: 'Users', to: '/users', icon: Users },
-      { label: 'Roles & Permissions', to: '/roles', icon: Shield },
-      { label: 'Audit Logs', to: '/audit-logs', icon: ClipboardList },
-    ],
-  },
-  {
-    heading: 'Academic',
-    items: [
-      { label: 'Sessions', to: '/academic/sessions', icon: Calendar },
-      { label: 'Courses', to: '/academic/courses', icon: BookOpen },
-      { label: 'Sections', to: '/academic/sections', icon: Layers },
-      { label: 'Subjects', to: '/academic/subjects', icon: BookMarked },
-    ],
-  },
-  {
-    heading: 'People',
-    items: [
-      { label: 'Faculty', to: '/faculty', icon: UserCheck },
-      { label: 'Students', to: '/students', icon: GraduationCap },
-      { label: 'Admissions', to: '/admissions', icon: UserPlus },
-    ],
-  },
-  {
-    heading: 'Examinations',
-    items: [
-      { label: 'All Exams',         to: '/examinations',                  matchSearch: '',                icon: FileCheck },
-      { label: 'Active Exams',      to: '/examinations?status=open',      matchSearch: 'status=open',     icon: BookOpenCheck },
-      { label: 'Grading Queue',     to: '/examinations?status=closed',    matchSearch: 'status=closed',   icon: FileSignature },
-      { label: 'Published Results', to: '/examinations?status=published', matchSearch: 'status=published',icon: Award },
-    ],
-  },
-  {
-    heading: 'Attendance',
-    items: [
-      { label: 'Attendance', to: '/attendance', icon: CalendarCheck },
-      { label: 'Report', to: '/attendance/report', icon: BarChart3 },
-    ],
-  },
-  {
-    heading: 'Timetable',
-    items: [
-      { label: 'Section Schedule',    to: '/timetable',              icon: CalendarDays },
-      { label: 'Rooms & Labs',        to: '/timetable/rooms',        icon: Building2 },
-      { label: 'Time Slots',          to: '/timetable/timeslots',    icon: Clock },
-      { label: 'Subject Allocation',  to: '/timetable/allocations',  icon: UserCog },
-      { label: 'Faculty View',        to: '/timetable/faculty-view', icon: UserCheck },
-      { label: 'Room View',           to: '/timetable/room-view',    icon: LayoutGrid },
-    ],
-  },
-  {
-    heading: 'Library',
-    items: [
-      { label: 'Dashboard', to: '/library', icon: LayoutGrid },
-      { label: 'Books', to: '/library/books', icon: Library },
-      { label: 'Issues & Returns', to: '/library/issues', icon: BookCopy },
-      { label: 'Reservations', to: '/library/reservations', icon: CalendarClock },
-      { label: 'Members', to: '/library/members', icon: UsersRound },
-      { label: 'Fine Rules', to: '/library/fines', icon: Scale },
-      { label: 'Barcode Labels', to: '/library/barcodes', icon: Barcode },
-    ],
-  },
-  {
-    heading: 'Hostel',
-    items: [
-      { label: 'Hostels & Rooms', to: '/hostel', icon: Building2 },
-      { label: 'Leave & Outing', to: '/hostel/leave-requests', icon: CalendarOff },
-      { label: 'Visitors', to: '/hostel/visitors', icon: Users2 },
-      { label: 'Complaints', to: '/hostel/complaints', icon: AlertCircle },
-      { label: 'Fee Payments', to: '/hostel/fee-payments', icon: BedDouble },
-      { label: 'Attendance', to: '/hostel/attendance', icon: CheckSquare },
-    ],
-  },
-  {
-    heading: 'Fee Management',
-    items: [
-      { label: 'Fee Structures', to: '/fee/structures', icon: IndianRupee },
-      { label: 'Payments', to: '/fee/payments', icon: Receipt },
-    ],
-  },
-  {
-    heading: 'Employee Management',
-    items: [
-      { label: 'Employees', to: '/employees', icon: Users },
-      { label: 'Departments', to: '/employees/departments', icon: Building2 },
-      { label: 'Designations', to: '/employees/designations', icon: Briefcase },
-      { label: 'Attendance', to: '/employees/attendance', icon: ClipboardCheck },
-      { label: 'Loans & Advances', to: '/employees/loans', icon: PiggyBank },
-      { label: 'Separation', to: '/employees/separation', icon: UserMinus },
-    ],
-  },
-  {
-    heading: 'Leave Management',
-    items: [
-      { label: 'Leave Types', to: '/leave/types', icon: FileText },
-      { label: 'Applications', to: '/leave/applications', icon: CalendarCheck },
-      { label: 'Balances', to: '/leave/balances', icon: Wallet },
-    ],
-  },
-  {
-    heading: 'Payroll Management',
-    items: [
-      { label: 'Salary Components', to: '/payroll/components', icon: DollarSign },
-      { label: 'Salary Structures', to: '/payroll/structures', icon: Banknote },
-      { label: 'Employee Salary', to: '/payroll/salary', icon: IndianRupee },
-      { label: 'Payroll Runs', to: '/payroll/runs', icon: Calculator },
-      { label: 'Pay Slips', to: '/payroll/payslips', icon: FileText },
-      { label: 'Salary Register', to: '/payroll/reports/salary-register', icon: Receipt },
-      { label: 'Bank Transfer', to: '/payroll/reports/bank-transfer', icon: Building2 },
-    ],
-  },
-  {
-    heading: 'Store Management',
-    items: [
-      { label: 'Dashboard', to: '/store', icon: LayoutGrid },
-      { label: 'Item Master', to: '/store/items', icon: Package },
-      { label: 'Categories', to: '/store/categories', icon: Tag },
-      { label: 'Vendors', to: '/store/vendors', icon: Truck },
-      { label: 'Purchase Requests', to: '/store/purchase-requests', icon: ClipboardList },
-      { label: 'Purchase Orders', to: '/store/purchase-orders', icon: ShoppingCart },
-      { label: 'Stock Receipt', to: '/store/receipts', icon: PackageCheck },
-      { label: 'Stock Issue', to: '/store/issues', icon: PackageOpen },
-      { label: 'Stock Return', to: '/store/returns', icon: Undo2 },
-      { label: 'Stock Transfer', to: '/store/transfers', icon: ArrowLeftRight },
-      { label: 'Stock Adjustment', to: '/store/adjustments', icon: SlidersHorizontal },
-      { label: 'Assets', to: '/store/assets', icon: MonitorCheck },
-      { label: 'Stock Verification', to: '/store/verification', icon: ClipboardCheck },
-      { label: 'Stock Ledger', to: '/store/ledger', icon: BookOpen },
-      { label: 'Low Stock', to: '/store/low-stock', icon: AlertTriangle },
-    ],
-  },
-  {
-    heading: 'Settings',
-    items: [
-      { label: 'Organization', to: '/settings/organization', icon: Building2 },
-    ],
-  },
-];
+import { visibleNavGroups, type NavGroup, type NavItem } from '../app/navigation';
+import { ACCESS, canAccess } from '../app/access';
 
 // Maps URL path segments → human-readable labels for breadcrumbs
 const ROUTE_LABELS: Record<string, string> = {
@@ -307,6 +93,9 @@ const ROUTE_LABELS: Record<string, string> = {
   settings: 'Settings',
   organization: 'Organization',
   profile: 'Profile',
+  my: 'My Portal',
+  results: 'Results',
+  fees: 'Fees',
 };
 
 function useBreadcrumbs() {
@@ -388,7 +177,9 @@ function Sidebar({
         {(!collapsed || mobile) && (
           <div className="overflow-hidden">
             <p className="text-sm font-semibold text-white truncate">College Management</p>
-            <p className="text-xs text-slate-400">Admin Portal</p>
+            <p className="text-xs text-slate-400">
+              {user?.student_id ? 'Student Portal' : canAccess(user, ACCESS.users) ? 'Admin Portal' : 'Staff Portal'}
+            </p>
           </div>
         )}
       </div>
@@ -483,7 +274,7 @@ function Sidebar({
 // ── Main layout ────────────────────────────────────────────────────────────────
 
 export function AdminLayout() {
-  const { user, logout, hasAnyRole } = useAuth();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -502,10 +293,7 @@ export function AdminLayout() {
     }
   };
 
-  const visibleGroups = NAV_GROUPS.map((g) => ({
-    ...g,
-    items: g.items.filter((item) => !item.roles || hasAnyRole(...item.roles)),
-  })).filter((g) => g.items.length > 0);
+  const visibleGroups = visibleNavGroups(user);
 
   const handleLogout = async () => {
     await logout();
@@ -663,18 +451,20 @@ export function AdminLayout() {
                     <div className="py-1">
                       <button
                         className="flex w-full items-center gap-2.5 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
-                        onClick={() => { setUserMenuOpen(false); navigate('/profile'); }}
+                        onClick={() => { setUserMenuOpen(false); navigate(user?.student_id ? '/my/profile' : '/profile'); }}
                       >
                         <User className="h-4 w-4 text-slate-400" />
                         My Profile
                       </button>
-                      <button
-                        className="flex w-full items-center gap-2.5 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
-                        onClick={() => { setUserMenuOpen(false); navigate('/settings/organization'); }}
-                      >
-                        <Settings className="h-4 w-4 text-slate-400" />
-                        Settings
-                      </button>
+                      {canAccess(user, ACCESS.orgSettings) && (
+                        <button
+                          className="flex w-full items-center gap-2.5 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                          onClick={() => { setUserMenuOpen(false); navigate('/settings/organization'); }}
+                        >
+                          <Settings className="h-4 w-4 text-slate-400" />
+                          Settings
+                        </button>
+                      )}
                     </div>
                     <div className="border-t border-slate-100 py-1">
                       <button

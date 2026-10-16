@@ -10,6 +10,7 @@ import { Spinner } from '../../components/common/Spinner';
 import { ConfirmModal } from '../../components/modals/ConfirmModal';
 import { getErrorMessage } from '../../types';
 import type { Section, Course, AcademicSession, PaginatedResponse } from '../../types';
+import { usePrefillCurrentSession } from '../../hooks/useCurrentSession';
 
 const sectionSchema = z.object({
   name: z.string().min(1, 'Section name is required'),
@@ -36,7 +37,7 @@ function SectionModal({
   const qc = useQueryClient();
   const isCreate = !section;
 
-  const { register, handleSubmit, formState: { errors } } = useForm<SectionFormData>({
+  const { getValues, setValue, register, handleSubmit, formState: { errors } } = useForm<SectionFormData>({
     resolver: zodResolver(sectionSchema),
     defaultValues: section
       ? {
@@ -50,6 +51,12 @@ function SectionModal({
       : { name: '', course_id: 0, session_id: 0, year_of_study: 1, capacity: 60, is_active: true },
   });
 
+  // New records default to the current academic session
+  usePrefillCurrentSession(
+    () => !getValues('session_id'),
+    (id) => setValue('session_id', id),
+    !section && sessions.length > 0,
+  );
   const mutation = useMutation({
     mutationFn: (data: SectionFormData) =>
       isCreate ? sectionsApi.create(data) : sectionsApi.update(section.id, data),
@@ -103,7 +110,7 @@ function SectionModal({
             >
               <option value={0}>Select session…</option>
               {sessions.map((s) => (
-                <option key={s.id} value={s.id}>{s.name}</option>
+                <option key={s.id} value={s.id}>{s.name}{s.is_current ? ' (Current)' : ''}</option>
               ))}
             </select>
             {errors.session_id && <p className="mt-1 text-xs text-red-500">{errors.session_id.message}</p>}
@@ -208,7 +215,7 @@ export function SectionsPage() {
           className="input-field text-sm"
         >
           <option value="">All Sessions</option>
-          {sessions?.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+          {sessions?.map((s) => <option key={s.id} value={s.id}>{s.name}{s.is_current ? ' (Current)' : ''}</option>)}
         </select>
       </div>
 

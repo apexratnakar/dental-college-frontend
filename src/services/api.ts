@@ -146,6 +146,12 @@ export const usersApi = {
 
   unblock: (id: number) => api.post(`/users/${id}/unblock`),
 
+  /** Omit newPassword to have the server generate a temporary one (returned once). */
+  resetPassword: (id: number, newPassword?: string) =>
+    api.post<{ message: string; temp_password: string | null }>(`/users/${id}/reset-password`, {
+      new_password: newPassword || null,
+    }),
+
   assignRole: (id: number, role_id: number) =>
     api.post(`/users/${id}/assign-role`, { role_id }),
 
@@ -570,6 +576,8 @@ export const employeeApi = {
   updateDesignation: (id: number, data: unknown) => api.put(`/employees/designations/${id}`, data),
   deleteDesignation: (id: number) => api.delete(`/employees/designations/${id}`),
   listEmployees: (params?: unknown) => api.get('/employees', { params }),
+  /** id + code + name only — usable by modules without employees:read (e.g. library). */
+  lookupEmployees: (search?: string) => api.get('/employees/lookup', { params: { search } }),
   createEmployee: (data: unknown) => api.post('/employees', data),
   getEmployee: (id: number) => api.get(`/employees/${id}`),
   updateEmployee: (id: number, data: unknown) => api.put(`/employees/${id}`, data),
@@ -734,6 +742,40 @@ export const storeApi = {
 export const settingsApi = {
   getOrgSettings: () => api.get('/settings/organization'),
   updateOrgSettings: (data: unknown) => api.put('/settings/organization', data),
+};
+
+// Student self-service — always the logged-in student's own data
+export const meApi = {
+  profile: () => api.get('/me/student'),
+  timetable: () => api.get('/me/timetable'),
+  attendance: () => api.get('/me/attendance'),
+  exams: () => api.get('/me/exams'),
+  admitCard: (examId: number) =>
+    api.get(`/me/exams/${examId}/admit-card`, { responseType: 'blob' }),
+  results: () => api.get('/me/results'),
+  reportCard: (examId: number) =>
+    api.get(`/me/results/${examId}/report-card`, { responseType: 'blob' }),
+  fees: (academicSessionId?: number) =>
+    api.get('/me/fees', { params: { academic_session_id: academicSessionId } }),
+  library: () => api.get('/me/library'),
+  hostel: () => api.get('/me/hostel'),
+
+  // Employee self-service
+  employee: () => api.get('/me/employee'),
+  leaveTypes: () => api.get('/me/leave/types'),
+  leaveBalances: (year?: number) => api.get('/me/leave/balances', { params: { year } }),
+  leaveApplications: () => api.get('/me/leave/applications'),
+  applyLeave: (data: { leave_type_id: number; from_date: string; to_date: string; is_half_day: boolean; reason: string }) =>
+    api.post('/me/leave/applications', data),
+  withdrawLeave: (id: number) => api.put(`/me/leave/applications/${id}/withdraw`),
+  salary: () => api.get('/me/salary'),
+  attendanceToday: () => api.get('/me/staff-attendance/today'),
+  checkIn: (data: { work_from_home: boolean; remarks?: string }) => api.post('/me/staff-attendance/check-in', data),
+  checkOut: () => api.post('/me/staff-attendance/check-out'),
+  attendanceMonth: (year: number, month: number) => api.get('/me/staff-attendance', { params: { year, month } }),
+  payslips: () => api.get('/me/payslips'),
+  payslip: (id: number) => api.get(`/me/payslips/${id}`),
+  payslipPdf: (id: number) => api.get(`/me/payslips/${id}/download`, { responseType: 'blob' }),
 };
 
 export default api;

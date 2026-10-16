@@ -14,6 +14,7 @@ import { hostelApi, sessionsApi, studentsApi } from '../../services/api';
 import { Spinner } from '../../components/common/Spinner';
 import { PageTitle } from '../../components/common/PageTitle';
 import { getErrorMessage } from '../../types';
+import { digitsOnly, isValidMobile, MOBILE_ERROR, mobileInputProps } from '../../utils/validation';
 import type {
   Hostel, HostelRoom, HostelAllocation,
   RoomType, RoomStatus, AcademicSession, Student,
@@ -24,6 +25,7 @@ import type {
   HostelAttendanceRecord, HostelAttendanceStatus,
   PaginatedResponse,
 } from '../../types';
+import { usePrefillCurrentSession } from '../../hooks/useCurrentSession';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -170,10 +172,16 @@ function AllocateModal({ room, onClose, onSaved }: {
       return data as { items: Student[] };
     },
   });
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<AllocFormData>({
+  const { getValues, setValue, register, handleSubmit, formState: { errors, isSubmitting } } = useForm<AllocFormData>({
     resolver: zodResolver(allocSchema),
     defaultValues: { check_in_date: new Date().toISOString().slice(0, 10) },
   });
+  // New records default to the current academic session
+  usePrefillCurrentSession(
+    () => !getValues('academic_session_id'),
+    (id) => setValue('academic_session_id', id),
+    !!sessions?.length,
+  );
   const onSubmit = async (values: AllocFormData) => {
     setError(null);
     try {
@@ -484,13 +492,16 @@ function LeaveRequestModal({ hostelId, onClose, onSaved }: {
       return data as PaginatedResponse<HostelAllocation>;
     },
   });
-  const { register, handleSubmit, formState: { isSubmitting } } = useForm({
+  const { register, handleSubmit, formState: { isSubmitting, errors } } = useForm({
     defaultValues: {
       student_id: 0, hostel_id: hostelId, leave_type: 'leave' as HostelLeaveType,
       from_date: new Date().toISOString().slice(0, 10),
       to_date: new Date().toISOString().slice(0, 10),
       from_time: '', to_time: '', reason: '', destination: '', contact_during_leave: '',
     },
+  });
+  const contactReg = register('contact_during_leave', {
+    validate: (v) => isValidMobile(v) || MOBILE_ERROR,
   });
   const onSubmit = async (values: Record<string, unknown>) => {
     setError(null);
@@ -563,7 +574,13 @@ function LeaveRequestModal({ hostelId, onClose, onSaved }: {
           </div>
           <div>
             <label className="form-label">Contact During Leave</label>
-            <input {...register('contact_during_leave')} className="input w-full" placeholder="Phone number" />
+            <input
+              {...contactReg}
+              {...mobileInputProps}
+              className="input w-full"
+              onChange={(e) => contactReg.onChange(digitsOnly(e))}
+            />
+            {errors.contact_during_leave && <p className="form-error">{errors.contact_during_leave.message}</p>}
           </div>
           {error && <p className="text-sm text-red-500">{error}</p>}
           <div className="flex justify-end gap-3 pt-2">
@@ -591,8 +608,11 @@ function AddVisitorModal({ hostelId, onClose, onSaved }: {
       return data as PaginatedResponse<HostelAllocation>;
     },
   });
-  const { register, handleSubmit, formState: { isSubmitting } } = useForm({
+  const { register, handleSubmit, formState: { isSubmitting, errors } } = useForm({
     defaultValues: { hostel_id: hostelId, student_id: 0, visitor_name: '', visitor_phone: '', relation: '', purpose: '', remarks: '' },
+  });
+  const phoneReg = register('visitor_phone', {
+    validate: (v) => isValidMobile(v) || MOBILE_ERROR,
   });
   const onSubmit = async (values: Record<string, unknown>) => {
     setError(null);
@@ -632,7 +652,13 @@ function AddVisitorModal({ hostelId, onClose, onSaved }: {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="form-label">Phone</label>
-              <input {...register('visitor_phone')} className="input w-full" />
+              <input
+                {...phoneReg}
+                {...mobileInputProps}
+                className="input w-full"
+                onChange={(e) => phoneReg.onChange(digitsOnly(e))}
+              />
+              {errors.visitor_phone && <p className="form-error">{errors.visitor_phone.message}</p>}
             </div>
             <div>
               <label className="form-label">Relation</label>

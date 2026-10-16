@@ -48,6 +48,12 @@ export interface User {
   last_login: string | null;
   profile_photo: string | null;
   roles: RoleSummary[];
+  /** Only returned by /users/me — drives which menus and pages the user can open. */
+  permissions?: string[];
+  /** Set when the logged-in user is a student (from /users/me). */
+  student_id?: number | null;
+  /** Set when the logged-in user is linked to an employee record (from /users/me). */
+  employee_id?: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -931,6 +937,12 @@ export interface FeeStatementLine {
   due_date: string | null;
   is_overdue: boolean;
   payments: FeePayment[];
+  /** 'hostel' = charge raised in the Hostel module (collected there, not in Fee Payments) */
+  source?: 'course' | 'hostel';
+  description?: string | null;
+  paid_on?: string | null;
+  receipt_no?: string | null;
+  status?: string | null;
 }
 
 export interface StudentFeeStatement {
@@ -943,6 +955,222 @@ export interface StudentFeeStatement {
   total_due: number;
   total_paid: number;
   total_balance: number;
+}
+
+// ── Student self-service (/me/*) ──────────────────────────────────────────────
+
+export interface MyStudentProfile {
+  id: number;
+  enrollment_number: string;
+  full_name: string;
+  email: string | null;
+  mobile_number: string | null;
+  course_name: string | null;
+  course_code: string | null;
+  section_name: string | null;
+  session_name: string | null;
+  year_of_study: number;
+  status: string;
+  date_of_birth: string | null;
+  gender: string | null;
+  blood_group: string | null;
+  category: string | null;
+  permanent_address: string | null;
+  current_address: string | null;
+  father_name: string | null;
+  father_mobile: string | null;
+  mother_name: string | null;
+  guardian_name: string | null;
+  guardian_relation: string | null;
+  guardian_mobile: string | null;
+}
+
+export interface MySubjectAttendance {
+  subject_id: number;
+  subject_name: string;
+  subject_code: string;
+  total_classes: number;
+  present: number;
+  late: number;
+  absent: number;
+  excused: number;
+  percentage: number;
+}
+
+export interface MyAttendanceEntry {
+  record_date: string;
+  subject_name: string;
+  subject_code: string;
+  start_time: string | null;
+  status: 'present' | 'absent' | 'late' | 'excused';
+  topic_covered: string | null;
+}
+
+export interface MyAttendance {
+  overall_percentage: number;
+  total_classes: number;
+  attended: number;
+  subjects: MySubjectAttendance[];
+  recent: MyAttendanceEntry[];
+}
+
+// ── Employee self-service (/me/...) ──────────────────────────────────────────
+
+export interface MyEmployeeProfile {
+  id: number;
+  employee_code: string;
+  full_name: string;
+  department: string | null;
+  designation: string | null;
+  date_of_joining: string | null;
+  official_email: string | null;
+  mobile: string | null;
+}
+
+export interface MyLeaveType {
+  id: number;
+  code: string;
+  name: string;
+  is_paid: boolean;
+  max_consecutive_days: number | null;
+}
+
+export interface MyLeaveBalance {
+  leave_type_id: number;
+  leave_type_code: string;
+  leave_type_name: string;
+  is_paid: boolean;
+  year: number;
+  allocated: number;
+  used: number;
+  pending: number;
+  available: number;
+}
+
+export interface MyLeaveApplication {
+  id: number;
+  leave_type_id: number;
+  leave_type_name: string | null;
+  leave_type_code: string | null;
+  from_date: string;
+  to_date: string;
+  total_days: number;
+  is_half_day: boolean;
+  reason: string;
+  status: 'draft' | 'pending' | 'approved' | 'rejected' | 'cancelled' | 'withdrawn';
+  applied_at: string;
+  remarks: string | null;
+  approvals: { action: string; remarks: string | null; approved_by_name?: string | null; action_at?: string }[];
+}
+
+export interface MySalaryLine {
+  code: string;
+  name: string;
+  component_type: 'earning' | 'deduction';
+  basis: string;
+  monthly_amount: number;
+}
+
+export interface MySalary {
+  assigned: boolean;
+  structure_name: string | null;
+  effective_from: string | null;
+  ctc_annual: number | null;
+  basic_monthly: number | null;
+  earnings: MySalaryLine[];
+  deductions: MySalaryLine[];
+  gross_monthly: number;
+  deductions_monthly: number;
+  net_monthly: number;
+}
+
+export interface MyAttendanceDay {
+  date: string;
+  status: 'present' | 'absent' | 'half_day' | 'leave' | 'holiday' | 'week_off' | 'late' | 'wfh';
+  check_in: string | null;
+  check_out: string | null;
+  hours_worked: number | null;
+  remarks: string | null;
+  self_marked: boolean;
+}
+
+export interface MyAttendanceToday {
+  date: string;
+  server_time: string;
+  office_start: string;
+  on_leave: string | null;
+  record: MyAttendanceDay | null;
+  can_check_in: boolean;
+  can_check_out: boolean;
+  message: string | null;
+}
+
+export interface MyAttendanceMonth {
+  year: number;
+  month: number;
+  days: MyAttendanceDay[];
+  summary: Record<string, number>;
+}
+
+export interface MyHostel {
+  allocated: boolean;
+  hostel_name: string | null;
+  hostel_type: string | null;
+  address: string | null;
+  room_number: string | null;
+  floor: number | null;
+  room_type: string | null;
+  capacity: number | null;
+  check_in_date: string | null;
+  session_name: string | null;
+  warden_name: string | null;
+  warden_email: string | null;
+  warden_mobile: string | null;
+  roommates: { name: string; enrollment_number: string; year_of_study: number }[];
+  fees: FeeStatementLine[];
+  total_due: number;
+  total_paid: number;
+  total_balance: number;
+}
+
+export interface MyExamPaper {
+  schedule_id: number;
+  subject_name: string;
+  subject_code: string;
+  kind: 'theory' | 'practical' | 'both';
+  exam_date: string;
+  start_time: string | null;
+  end_time: string | null;
+  room_no: string | null;
+  max_marks: number;
+  passing_marks: number;
+}
+
+export interface MyUpcomingExam {
+  exam_id: number;
+  exam_name: string;
+  exam_type: string;
+  start_date: string;
+  end_date: string;
+  registration: 'registered' | 'not_eligible' | 'not_registered';
+  can_download_admit_card: boolean;
+  papers: MyExamPaper[];
+}
+
+export interface MyExamResult {
+  exam_id: number;
+  exam_name: string;
+  exam_type: string;
+  start_date: string;
+  end_date: string;
+  total_max_marks: number | null;
+  total_obtained: number | null;
+  percentage: number | null;
+  grade: string | null;
+  is_pass: boolean | null;
+  result_status: string | null;
+  published_at: string | null;
+  subjects: SubjectResultItem[];
 }
 
 // ── API Errors ────────────────────────────────────────────────────────────────

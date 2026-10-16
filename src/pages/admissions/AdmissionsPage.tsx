@@ -11,6 +11,8 @@ import { Spinner } from '../../components/common/Spinner';
 import { ConfirmModal } from '../../components/modals/ConfirmModal';
 import { getErrorMessage } from '../../types';
 import type { Admission, Course, AcademicSession, PaginatedResponse } from '../../types';
+import { birthDateField, digitsOnly, maxBirthDate, mobileField, mobileInputProps } from '../../utils/validation';
+import { usePrefillCurrentSession } from '../../hooks/useCurrentSession';
 
 // ── Status helpers ─────────────────────────────────────────────────────────────
 
@@ -56,9 +58,9 @@ const createSchema = z.object({
   course_id: z.number().min(1, 'Course is required'),
   session_id: z.number().min(1, 'Session is required'),
   year_of_study: z.number().int().min(1).max(10),
-  email: z.string().email('Invalid email').optional().or(z.literal('')),
-  mobile: z.string().optional(),
-  date_of_birth: z.string().optional(),
+  email: z.string().trim().toLowerCase().email('Invalid email').optional().or(z.literal('')),
+  mobile: mobileField,
+  date_of_birth: birthDateField,
   gender: z.string().optional(),
   category: z.string().optional(),
   merit_score: z.number().min(0).max(100).optional().nullable(),
@@ -67,6 +69,10 @@ const createSchema = z.object({
   father_name: z.string().optional(),
   mother_name: z.string().optional(),
   remarks: z.string().optional(),
+}).refine((d) => !!d.email || !!d.mobile, {
+  // The email or mobile becomes the student's login once admitted
+  message: 'Enter an email or a mobile number',
+  path: ['email'],
 });
 
 type CreateFormData = z.infer<typeof createSchema>;
@@ -82,7 +88,7 @@ function NewAdmissionModal({
 }) {
   const qc = useQueryClient();
 
-  const {
+  const { getValues, setValue, 
     register,
     handleSubmit,
     formState: { errors },
@@ -90,6 +96,13 @@ function NewAdmissionModal({
     resolver: zodResolver(createSchema),
     defaultValues: { year_of_study: 1 },
   });
+  // New records default to the current academic session
+  usePrefillCurrentSession(
+    () => !getValues('session_id'),
+    (id) => setValue('session_id', id),
+    sessions.length > 0,
+  );
+  const mobileReg = register('mobile');
 
   const mutation = useMutation({
     mutationFn: (data: CreateFormData) => {
@@ -167,7 +180,7 @@ function NewAdmissionModal({
                 <option value={0}>Select…</option>
                 {sessions.map((s) => (
                   <option key={s.id} value={s.id}>
-                    {s.name}
+                    {s.name}{s.is_current ? ' (Current)' : ''}
                   </option>
                 ))}
               </select>
@@ -190,15 +203,23 @@ function NewAdmissionModal({
           {/* Contact */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-sm font-medium text-slate-700">Email</label>
+              <label className="text-sm font-medium text-slate-700">Email <span className="font-normal text-slate-400">(email or mobile required)</span></label>
               <input {...register('email')} type="email" className="input-field mt-1 w-full" />
               {errors.email && (
                 <p className="mt-1 text-xs text-red-500">{errors.email.message}</p>
               )}
             </div>
             <div>
-              <label className="text-sm font-medium text-slate-700">Mobile</label>
-              <input {...register('mobile')} className="input-field mt-1 w-full" />
+              <label className="text-sm font-medium text-slate-700">Mobile <span className="font-normal text-slate-400">(email or mobile required)</span></label>
+              <input
+                {...mobileReg}
+                {...mobileInputProps}
+                className="input-field mt-1 w-full"
+                onChange={(e) => mobileReg.onChange(digitsOnly(e))}
+              />
+              {errors.mobile && (
+                <p className="mt-1 text-xs text-red-500">{errors.mobile.message}</p>
+              )}
             </div>
           </div>
 
@@ -209,8 +230,12 @@ function NewAdmissionModal({
               <input
                 type="date"
                 {...register('date_of_birth')}
+                max={maxBirthDate()}
                 className="input-field mt-1 w-full"
               />
+              {errors.date_of_birth && (
+                <p className="mt-1 text-xs text-red-500">{errors.date_of_birth.message}</p>
+              )}
             </div>
             <div>
               <label className="text-sm font-medium text-slate-700">Gender</label>
@@ -241,11 +266,17 @@ function NewAdmissionModal({
               <input
                 type="number"
                 step="0.01"
-                {...register('merit_score', { valueAsNumber: true })}
+                {...register('merit_score', {
+                  // Blank means "not provided" — valueAsNumber would turn it into NaN and block submit
+                  setValueAs: (v) => (v === '' || v == null ? null : Number(v)),
+                })}
                 min={0}
                 max={100}
                 className="input-field mt-1 w-full"
               />
+              {errors.merit_score && (
+                <p className="mt-1 text-xs text-red-500">Merit score must be between 0 and 100</p>
+              )}
             </div>
             <div className="col-span-2">
               <label className="text-sm font-medium text-slate-700">Previous Institution</label>
@@ -427,7 +458,7 @@ export function AdmissionsPage() {
           <option value="">All Sessions</option>
           {sessions?.map((s) => (
             <option key={s.id} value={s.id}>
-              {s.name}
+              {s.name}{s.is_current ? ' (Current)' : ''}
             </option>
           ))}
         </select>

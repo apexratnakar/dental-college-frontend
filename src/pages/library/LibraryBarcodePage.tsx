@@ -2,37 +2,38 @@ import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Search, Printer, CheckSquare, Square, AlertCircle } from 'lucide-react';
 import JsBarcode from 'jsbarcode';
-import { libraryApi } from '../../services/api';
+import { libraryApi, settingsApi } from '../../services/api';
 import { PageTitle } from '../../components/common/PageTitle';
 import { Spinner } from '../../components/common/Spinner';
-import type { Book, BookCopy, PaginatedResponse } from '../../types';
+import type { Book, BookCopy, OrganizationSettings, PaginatedResponse } from '../../types';
 
 // ── Single label component ────────────────────────────────────────────────────
 
-const COLLEGE_NAME = 'DENTAL COLLEGE';
+const DEFAULT_COLLEGE_NAME = 'COLLEGE LIBRARY';
+const BAR_WIDTHS = { sm: 1.5, md: 2, lg: 2.5 };
+const BAR_HEIGHTS = { sm: 40, md: 55, lg: 70 };
 
 function BarcodeLabel({
   copy,
   book,
   size,
+  collegeName,
 }: {
   copy: BookCopy;
   book: Book;
   size: 'sm' | 'md' | 'lg';
+  collegeName: string;
 }) {
   const svgRef = useRef<SVGSVGElement>(null);
   const value = copy.barcode ?? copy.accession_number;
-
-  const widths = { sm: 1.5, md: 2, lg: 2.5 };
-  const heights = { sm: 40, md: 55, lg: 70 };
 
   useEffect(() => {
     if (!svgRef.current) return;
     try {
       JsBarcode(svgRef.current, value, {
         format: 'CODE128',
-        width: widths[size],
-        height: heights[size],
+        width: BAR_WIDTHS[size],
+        height: BAR_HEIGHTS[size],
         displayValue: false,
         margin: 0,
         background: '#ffffff',
@@ -55,7 +56,7 @@ function BarcodeLabel({
       style={{ width: size === 'sm' ? 180 : size === 'md' ? 220 : 260 }}
     >
       <p className="text-center font-bold leading-tight" style={{ fontSize: 9 }}>
-        {COLLEGE_NAME}
+        {collegeName}
       </p>
       <p className="text-center leading-tight" style={{ fontSize: size === 'sm' ? 7 : 8 }}>
         {shortTitle}
@@ -77,7 +78,10 @@ function BarcodeLabel({
 
 export function LibraryBarcodePage() {
   const [search, setSearch] = useState('');
-  const [selectedBookId, setSelectedBookId] = useState<number | null>(null);
+  // Keep the chosen book itself: the search list changes as you type, so looking
+  // it up there again can lose it (and blank the preview/print).
+  const [selectedBook, setSelectedBook] = useState<Book | null>(null);
+  const selectedBookId = selectedBook?.id ?? null;
   const [selectedCopyIds, setSelectedCopyIds] = useState<Set<number>>(new Set());
   const [labelSize, setLabelSize] = useState<'sm' | 'md' | 'lg'>('md');
   const printRef = useRef<HTMLDivElement>(null);
@@ -95,7 +99,12 @@ export function LibraryBarcodePage() {
     enabled: search.length >= 1 || !selectedBookId,
   });
 
-  const selectedBook = booksData?.items.find((b) => b.id === selectedBookId) ?? null;
+  const { data: orgSettings } = useQuery<OrganizationSettings>({
+    queryKey: ['org-settings'],
+    queryFn: () => settingsApi.getOrgSettings().then((r) => r.data),
+    staleTime: 5 * 60_000,
+  });
+  const collegeName = (orgSettings?.org_name || DEFAULT_COLLEGE_NAME).toUpperCase();
 
   const { data: copies = [], isLoading: copiesLoading } = useQuery<BookCopy[]>({
     queryKey: ['book-copies', selectedBookId],
@@ -118,8 +127,8 @@ export function LibraryBarcodePage() {
   };
 
   // Reset selection when book changes
-  const handleSelectBook = (id: number) => {
-    setSelectedBookId(id);
+  const handleSelectBook = (book: Book) => {
+    setSelectedBook(book);
     setSelectedCopyIds(new Set());
     setSearch('');
   };
@@ -175,7 +184,7 @@ export function LibraryBarcodePage() {
       <div id="print-labels" className="flex flex-wrap gap-2 p-4" ref={printRef}>
         {selectedBook &&
           selectedCopies.map((copy) => (
-            <BarcodeLabel key={copy.id} copy={copy} book={selectedBook} size={labelSize} />
+            <BarcodeLabel key={copy.id} copy={copy} book={selectedBook} size={labelSize} collegeName={collegeName} />
           ))}
       </div>
 
@@ -213,7 +222,7 @@ export function LibraryBarcodePage() {
                   {booksData.items.map((b) => (
                     <li key={b.id}>
                       <button
-                        onClick={() => handleSelectBook(b.id)}
+                        onClick={() => handleSelectBook(b)}
                         className={`w-full px-3 py-2.5 text-left hover:bg-slate-50 ${
                           selectedBookId === b.id ? 'bg-primary-50 font-medium text-primary-700' : 'text-slate-800'
                         }`}
@@ -342,7 +351,7 @@ export function LibraryBarcodePage() {
             ) : (
               <div className="flex flex-wrap gap-3">
                 {selectedCopies.map((copy) => (
-                  <BarcodeLabel key={copy.id} copy={copy} book={selectedBook} size={labelSize} />
+                  <BarcodeLabel key={copy.id} copy={copy} book={selectedBook} size={labelSize} collegeName={collegeName} />
                 ))}
               </div>
             )}

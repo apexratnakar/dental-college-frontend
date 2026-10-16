@@ -5,7 +5,9 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
   Plus, Search, Edit2, Trash2, Shield, Lock, Unlock, X, ChevronLeft, ChevronRight,
+  KeyRound, Eye, EyeOff, Copy, Check,
 } from 'lucide-react';
+import { useAuth } from '../../hooks/useAuth';
 import { usersApi, rolesApi } from '../../services/api';
 import { PageTitle } from '../../components/common/PageTitle';
 import { Spinner } from '../../components/common/Spinner';
@@ -13,6 +15,7 @@ import { ConfirmModal } from '../../components/modals/ConfirmModal';
 import type { PaginatedResponse, Role, User } from '../../types';
 import { getErrorMessage } from '../../types';
 import { cn, formatDateShort } from '../../utils';
+import { digitsOnly, mobileField, mobileInputProps } from '../../utils/validation';
 
 // ── Schemas ───────────────────────────────────────────────────────────────────
 
@@ -20,7 +23,7 @@ const createUserSchema = z.object({
   first_name: z.string().min(1, 'Required'),
   last_name: z.string().optional(),
   email: z.string().email('Invalid email').optional().or(z.literal('')),
-  mobile_number: z.string().regex(/^\+?[\d\s\-]{7,15}$/, 'Invalid mobile').optional().or(z.literal('')),
+  mobile_number: mobileField,
   username: z.string().optional().or(z.literal('')),
   password: z
     .string()
@@ -40,7 +43,7 @@ const updateUserSchema = z.object({
   first_name: z.string().min(1, 'Required').optional(),
   last_name: z.string().optional(),
   email: z.string().email('Invalid email').optional().or(z.literal('')),
-  mobile_number: z.string().regex(/^\+?[\d\s\-]{7,15}$/, 'Invalid mobile').optional().or(z.literal('')),
+  mobile_number: mobileField,
   is_active: z.boolean().optional(),
 });
 
@@ -60,6 +63,10 @@ export function UserManagement() {
   const [blockingUser, setBlockingUser] = useState<User | null>(null);
   const [deletingUser, setDeletingUser] = useState<User | null>(null);
   const [assigningRoleUser, setAssigningRoleUser] = useState<User | null>(null);
+  const [resettingUser, setResettingUser] = useState<User | null>(null);
+  const { hasRole } = useAuth();
+  // Mirrors the backend: only a Super Admin may reset a Super Admin's password
+  const canResetPassword = (u: User) => hasRole('Super Admin') || !u.roles.some((r) => r.name === 'Super Admin');
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
@@ -280,6 +287,15 @@ export function UserManagement() {
                           >
                             <Edit2 className="h-4 w-4" />
                           </button>
+                          {canResetPassword(user) && (
+                            <button
+                              className="rounded p-1.5 text-slate-400 hover:bg-slate-100 hover:text-sky-600"
+                              title="Reset password"
+                              onClick={() => setResettingUser(user)}
+                            >
+                              <KeyRound className="h-4 w-4" />
+                            </button>
+                          )}
                           <button
                             className="rounded p-1.5 text-slate-400 hover:bg-slate-100 hover:text-violet-600"
                             title="Manage roles"
@@ -393,6 +409,15 @@ export function UserManagement() {
         onCancel={() => setDeletingUser(null)}
       />
 
+      {/* ── Reset Password Modal ───────────────────────────────────────────── */}
+      {resettingUser && (
+        <ResetPasswordModal
+          user={resettingUser}
+          onClose={() => setResettingUser(null)}
+          onDone={(msg) => showToast(msg)}
+        />
+      )}
+
       {/* ── Assign Role Modal ──────────────────────────────────────────────── */}
       {assigningRoleUser && (
         <RoleModal
@@ -438,6 +463,7 @@ function UserFormModal({
       is_active: defaultValues?.is_active ?? true,
     },
   });
+  const mobileReg = register('mobile_number');
 
   const selectedRoleIds: number[] = watch('role_ids') ?? [];
 
@@ -482,7 +508,13 @@ function UserFormModal({
 
           <div>
             <label className="label">Mobile Number</label>
-            <input type="tel" className="input-field" placeholder="optional if email is provided" {...register('mobile_number')} />
+            <input
+              {...mobileReg}
+              {...mobileInputProps}
+              className="input-field"
+              placeholder="10 digits, optional if email is provided"
+              onChange={(e) => mobileReg.onChange(digitsOnly(e))}
+            />
             {errors.mobile_number && <p className="mt-1 text-xs text-red-600">{errors.mobile_number.message as string}</p>}
           </div>
 
@@ -605,6 +637,151 @@ function RoleModal({ user, roles, isAssigning, isRevoking, onAssign, onRevoke, o
         <div className="mt-4 flex justify-end">
           <button className="btn-secondary" onClick={onClose}>Done</button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Reset Password Modal ───────────────────────────────────────────────────────
+
+/** Same rules as the backend (_validate_password in app/schemas/user.py). */
+function passwordProblem(pw: string): string | null {
+  if (pw.length < 8) return 'At least 8 characters';
+  if (!/[A-Z]/.test(pw)) return 'Add an uppercase letter';
+  if (!/[a-z]/.test(pw)) return 'Add a lowercase letter';
+  if (!/\d/.test(pw)) return 'Add a digit';
+  return null;
+}
+
+function ResetPasswordModal({
+  user, onClose, onDone,
+}: { user: User; onClose: () => void; onDone: (message: string) => void }) {
+  const [mode, setMode] = useState<'generate' | 'manual'>('generate');
+  const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [show, setShow] = useState(false);
+  const [touched, setTouched] = useState(false);
+  const [result, setResult] = useState<{ message: string; temp_password: string | null } | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const problem = mode === 'manual'
+    ? passwordProblem(password) ?? (password !== confirm ? 'Passwords do not match' : null)
+    : null;
+
+  const mutation = useMutation({
+    mutationFn: () => usersApi.resetPassword(user.id, mode === 'manual' ? password : undefined),
+    onSuccess: ({ data }) => {
+      setResult(data);
+      onDone(data.message);
+    },
+  });
+
+  const copy = async () => {
+    if (!result?.temp_password) return;
+    try {
+      await navigator.clipboard.writeText(result.temp_password);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch { /* clipboard blocked — the password is still selectable on screen */ }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900">Reset password</h2>
+            <p className="text-sm text-slate-500">{user.full_name} · {user.email ?? user.mobile_number}</p>
+          </div>
+          <button onClick={onClose} className="rounded p-1 text-slate-400 hover:bg-slate-100"><X className="h-4 w-4" /></button>
+        </div>
+
+        {result ? (
+          <div className="space-y-4">
+            {result.temp_password ? (
+              <>
+                <p className="text-sm text-slate-700">New temporary password. It is shown only this once, so copy it and share it with the user privately.</p>
+                <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                  <code className="flex-1 select-all font-mono text-base tracking-wide text-slate-900">{result.temp_password}</code>
+                  <button onClick={copy} className="btn-secondary px-2 py-1 text-xs">
+                    {copied ? <><Check className="h-3.5 w-3.5" /> Copied</> : <><Copy className="h-3.5 w-3.5" /> Copy</>}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <p className="text-sm text-slate-700">The password has been changed to the one you entered.</p>
+            )}
+            <p className="text-xs text-slate-500">{user.first_name} has been signed out of all devices and must log in with the new password.</p>
+            <div className="flex justify-end"><button className="btn-primary" onClick={onClose}>Done</button></div>
+          </div>
+        ) : (
+          <form
+            className="space-y-4"
+            onSubmit={(e) => { e.preventDefault(); setTouched(true); if (!problem) mutation.mutate(); }}
+          >
+            <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600">
+              Passwords are stored encrypted and can't be viewed by anyone. You can only replace them.
+            </p>
+            <div className="space-y-2">
+              <label className="flex items-start gap-2 text-sm">
+                <input type="radio" name="mode" className="mt-0.5" checked={mode === 'generate'} onChange={() => setMode('generate')} />
+                <span><span className="font-medium text-slate-800">Generate a temporary password</span><br />
+                  <span className="text-xs text-slate-500">12 random characters, shown once after you reset.</span></span>
+              </label>
+              <label className="flex items-start gap-2 text-sm">
+                <input type="radio" name="mode" className="mt-0.5" checked={mode === 'manual'} onChange={() => setMode('manual')} />
+                <span className="font-medium text-slate-800">Set a password myself</span>
+              </label>
+            </div>
+
+            {mode === 'manual' && (
+              <div className="space-y-3">
+                <div>
+                  <label htmlFor="new-password" className="label">New password</label>
+                  <div className="relative">
+                    <input
+                      id="new-password"
+                      type={show ? 'text' : 'password'}
+                      autoComplete="new-password"
+                      className="input-field pr-10"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShow((v) => !v)}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                      title={show ? 'Hide password' : 'Show password'}
+                    >
+                      {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                  <p className="mt-1 text-xs text-slate-500">At least 8 characters with uppercase, lowercase and a digit.</p>
+                </div>
+                <div>
+                  <label htmlFor="confirm-password" className="label">Confirm password</label>
+                  <input
+                    id="confirm-password"
+                    type={show ? 'text' : 'password'}
+                    autoComplete="new-password"
+                    className="input-field"
+                    value={confirm}
+                    onChange={(e) => setConfirm(e.target.value)}
+                  />
+                </div>
+                {touched && problem && <p className="text-xs text-red-600">{problem}</p>}
+              </div>
+            )}
+
+            {mutation.isError && <p className="text-sm text-red-600">{getErrorMessage(mutation.error)}</p>}
+            <div className="flex justify-end gap-2 pt-1">
+              <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
+              <button type="submit" className="btn-primary" disabled={mutation.isPending}>
+                {mutation.isPending ? 'Resetting…' : 'Reset password'}
+              </button>
+            </div>
+          </form>
+        )}
       </div>
     </div>
   );

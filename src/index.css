@@ -71,6 +71,18 @@
 
   .label { display: block; font-size: .875rem; font-weight: 500; color: #374151; margin-bottom: .25rem; }
 
+  /* Aliases used by the hostel, fee, library and timetable forms (were never defined) */
+  .input {
+    display: block; border-radius: 0.5rem; border: 1px solid #cbd5e1;
+    background-color: white; padding: 0.5rem 0.75rem; font-size: 0.875rem; color: #0f172a;
+    box-shadow: 0 1px 2px 0 rgba(0,0,0,.05); transition: border-color .15s;
+  }
+  .input::placeholder { color: #94a3b8; }
+  .input:focus { outline: none; border-color: var(--color-primary-500); box-shadow: 0 0 0 1px var(--color-primary-500); }
+  .input:disabled { background-color: #f8fafc; color: #64748b; }
+  .form-label { display: block; font-size: .875rem; font-weight: 500; color: #374151; margin-bottom: .25rem; }
+  .form-error { margin-top: .25rem; font-size: .75rem; color: #dc2626; }
+
   .card { border-radius: .75rem; background-color: white; box-shadow: 0 1px 2px 0 rgba(0,0,0,.05); border: 1px solid #e2e8f0; }
 
   .badge { display: inline-flex; align-items: center; border-radius: 9999px; padding: .125rem .625rem; font-size: .75rem; font-weight: 500; }

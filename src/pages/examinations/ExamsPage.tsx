@@ -11,6 +11,7 @@ import { Spinner } from '../../components/common/Spinner';
 import { ConfirmModal } from '../../components/modals/ConfirmModal';
 import { getErrorMessage } from '../../types';
 import type { Exam, Course, AcademicSession, PaginatedResponse, ExamType, ExamStatus } from '../../types';
+import { usePrefillCurrentSession } from '../../hooks/useCurrentSession';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -74,7 +75,7 @@ function ExamModal({
   const qc = useQueryClient();
   const isCreate = !exam;
 
-  const { register, handleSubmit, formState: { errors } } = useForm<ExamFormData>({
+  const { getValues, setValue, register, handleSubmit, formState: { errors } } = useForm<ExamFormData>({
     resolver: zodResolver(examSchema),
     defaultValues: exam
       ? {
@@ -91,6 +92,12 @@ function ExamModal({
       : { year_of_study: 1, exam_type: 'internal' },
   });
 
+  // New records default to the current academic session
+  usePrefillCurrentSession(
+    () => !getValues('session_id'),
+    (id) => setValue('session_id', id),
+    !exam && sessions.length > 0,
+  );
   const mutation = useMutation({
     mutationFn: (data: ExamFormData) => {
       const payload = { ...data, semester: data.semester || undefined };
@@ -168,7 +175,7 @@ function ExamModal({
               >
                 <option value={0}>Select…</option>
                 {sessions.map((s) => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
+                  <option key={s.id} value={s.id}>{s.name}{s.is_current ? ' (Current)' : ''}</option>
                 ))}
               </select>
               {errors.session_id && (
@@ -323,7 +330,7 @@ export function ExamsPage() {
           className="input-field text-sm"
         >
           <option value="">All Sessions</option>
-          {sessions?.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+          {sessions?.map((s) => <option key={s.id} value={s.id}>{s.name}{s.is_current ? ' (Current)' : ''}</option>)}
         </select>
         <select
           value={filterCourse ?? ''}
